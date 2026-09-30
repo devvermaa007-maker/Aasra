@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SmartRoad – Smart Rainwater Drainage & Harvesting (Prototype)</title>
+<style>
+:root{--bg:#0a0f1a;--card:#111a2b;--line:#1e2b45;--acc:#38bdf8;--ok:#34d399;--warn:#fbbf24;--bad:#f87171;--tx:#e2e8f0;--mut:#8b9ab5}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;color:var(--tx);background:radial-gradient(circle at 20% 0,#13223f,var(--bg) 55%) fixed}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--line);background:#0b1322cc;position:sticky;top:0;z-index:5;backdrop-filter:blur(8px)}
+.brand{font-weight:800;font-size:1.25rem;letter-spacing:.5px}.brand span{color:var(--acc)}
+.brand small{display:block;font-weight:400;font-size:.72rem;color:var(--mut);letter-spacing:0}
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:#16233a;color:var(--tx);padding:8px 14px;border-radius:10px;transition:.2s}
+button:hover{border-color:var(--acc)}
+.pri{background:linear-gradient(135deg,#0ea5e9,#2563eb);border:0;font-weight:700}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;border-radius:0;background:transparent;padding:8px 18px;font-weight:700}
+.seg button.on{background:var(--acc);color:#04263a}
+main{display:grid;grid-template-columns:1fr 340px;gap:16px;padding:16px 20px;max-width:1500px;margin:auto}
+.card{background:linear-gradient(180deg,#121c30,#0f1727);border:1px solid var(--line);border-radius:16px;padding:14px}
+.card h3{margin:0 0 8px;font-size:.78rem;letter-spacing:1.5px;color:var(--mut);text-transform:uppercase}
+.side{display:flex;flex-direction:column;gap:16px}
+/* ---------- stage ---------- */
+#stage{position:relative;overflow:hidden;border-radius:12px;background:linear-gradient(#0b1630,#0d1424 25%,#0a0d14);touch-action:pan-y;user-select:none}
+#stage.is3{perspective:1800px;cursor:grab}
+#world{position:absolute;width:1000px;height:620px;transform-origin:500px 310px;transform-style:preserve-3d;transition:transform .9s cubic-bezier(.2,.8,.2,1)}
+#world.drag{transition:none}
+#stage:not(.is3) .t,#stage:not(.is3) .r{display:none}
+.hint{font-size:.72rem;color:var(--mut);margin-top:6px;text-align:right}
+.narr{margin-top:10px;padding:10px 14px;border-radius:10px;background:#0b1424;border:1px solid var(--line);min-height:44px;color:#bfe6ff}
+/* 3D box: front (.f) + top (.t) + right (.r) faces */
+.box{position:absolute;transform-style:preserve-3d}
+.box>i{position:absolute;display:block}
+.f{inset:0;transform:translateZ(calc(var(--d)/2))}
+.t{left:0;width:var(--w);height:var(--d);top:calc((var(--h) - var(--d))/2);transform:rotateX(90deg) translateZ(calc(var(--h)/2))}
+.r{top:0;height:var(--h);width:var(--d);left:calc((var(--w) - var(--d))/2);transform:rotateY(90deg) translateZ(calc(var(--w)/2))}
+.road>.f{background:linear-gradient(#3a4252,#1c212b);border-top:3px solid #566078}
+.road>.t{background:repeating-linear-gradient(90deg,#f5c542 0 40px,#0000 40px 80px) 0 50%/100% 5px no-repeat,#2b3140}
+.road>.r{background:#161a22}
+.glass>.f{background:rgba(148,197,255,.07);border:1.5px solid rgba(148,197,255,.5)}
+.glass>.t{background:rgba(148,197,255,.13);border:1.5px solid rgba(148,197,255,.5)}
+.glass>.r{background:rgba(90,140,220,.1);border:1.5px solid rgba(148,197,255,.4)}
+.glass.hot>.f{box-shadow:inset 0 0 24px #38bdf8;border-color:#7dd3fc}
+.water>i{background:var(--wc);opacity:.85}
+.water>.t{filter:brightness(1.35)}.water>.r{filter:brightness(.7)}
+.pipe>i{background:#334155}
+.pipe.on>.f{background:repeating-linear-gradient(90deg,#3aa6ff 0 10px,#9bdcff 10px 20px);animation:fx .5s linear infinite}
+.pipe.v.on>.f{background:repeating-linear-gradient(180deg,#3aa6ff 0 8px,#9bdcff 8px 16px);animation:fy .5s linear infinite}
+@keyframes fx{to{background-position:20px 0}}@keyframes fy{to{background-position:0 16px}}
+.wall{position:absolute;left:0;top:175px;width:1000px;height:445px;transform:translateZ(-115px);background:radial-gradient(#2a2118 1.5px,transparent 2px) 0 0/14px 14px,linear-gradient(#17120e,#0a0806)}
+.lab{position:absolute;left:0;right:0;top:6px;text-align:center;font-size:11px;font-weight:700;letter-spacing:.6px;color:#e6f2ff;text-shadow:0 1px 3px #000;line-height:1.25}
+.lab small{font-weight:400;opacity:.75;letter-spacing:0}.lab.b{top:auto;bottom:6px}
+.pct{position:absolute;inset:0;display:grid;place-items:center;font-size:34px;font-weight:800;text-shadow:0 2px 6px #000}
+.media{position:absolute;left:8px;right:8px;bottom:8px;height:42%;border-radius:6px;opacity:.9}
+.md0{background:repeating-linear-gradient(0deg,#0000 0 6px,#9aa4b5 6px 7px),repeating-linear-gradient(90deg,#0000 0 6px,#9aa4b5 6px 7px)}
+.md1{background:radial-gradient(#8b6b4a 2px,transparent 3px) 0 0/10px 10px,#4a3a2a}
+.md2{background:radial-gradient(#f0d9a0 1.5px,transparent 2.5px) 0 0/8px 8px,#b89a5a}
+.md3{background:radial-gradient(#777 1.5px,transparent 2.5px) 0 0/8px 8px,#15181e}
+.md4{background:radial-gradient(circle,#e0d0ff 0 5px,#8b5cf6aa 6px 26px,transparent 27px),#1b1233}
+/* slots */
+.slot{position:absolute}
+.gap{position:absolute;inset:0;overflow:hidden;background:#04060a;border:2px solid #0b0f17}
+.gap>b{position:absolute;top:0;bottom:0;width:50%;background:repeating-linear-gradient(90deg,#8b95a8 0 4px,#5c6577 4px 8px)}
+.gap>b:nth-of-type(1){left:0}.gap>b:nth-of-type(2){right:0}
+.gap>s,.fall{position:absolute;opacity:0;text-decoration:none;background:repeating-linear-gradient(180deg,#9ddcff 0 6px,#3b9cff 6px 14px);animation:fs .45s linear infinite}
+.gap>s{inset:0}
+.fall{top:0;height:60px;width:64px;-webkit-mask-image:linear-gradient(#000,transparent);mask-image:linear-gradient(#000,transparent)}
+@keyframes fs{to{background-position:0 14px}}
+/* sky */
+.layer{position:absolute;left:0;top:0;width:1000px;height:130px;overflow:hidden;pointer-events:none}
+.layer u{position:absolute;top:0;width:2px;height:16px;background:linear-gradient(#0000,#7dd3fc);animation:drop var(--rs,1s) linear infinite}
+@keyframes drop{from{transform:translateY(-20px)}to{transform:translateY(125px)}}
+.cloud{position:absolute;top:4px;width:240px;height:40px;border-radius:40px;background:#46566f}
+.cloud:before,.cloud:after{content:"";position:absolute;background:inherit;border-radius:50%}
+.cloud:before{width:90px;height:70px;left:30px;top:-32px}.cloud:after{width:70px;height:55px;left:120px;top:-24px}
+/* side panels */
+.big{font-size:2.6rem;font-weight:800;line-height:1}
+input[type=range]{width:100%;accent-color:var(--acc);margin:10px 0 2px}
+.rw{position:relative}.tick{position:absolute;left:calc(30% + 0px);top:-2px;height:8px;border-left:2px dashed var(--warn)}
+.tk{font-size:.7rem;color:var(--warn);position:absolute;left:30%;transform:translateX(-50%);top:30px}
+.alert{margin-top:22px;padding:10px;text-align:center;border-radius:10px;font-weight:800;letter-spacing:1px;background:#14213a;color:var(--mut)}
+.alert.mid{color:var(--warn)}.alert.on{background:#7f1d1d;color:#fff;animation:pl 1s infinite}
+@keyframes pl{50%{background:#b91c1c}}
+.badge{padding:4px 12px;border-radius:99px;font-weight:800;font-size:.85rem}
+.badge.closed{background:#3b1d24;color:var(--bad)}.badge.open{background:#0f3a2e;color:var(--ok)}
+.row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.mg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.m{background:#0b1424;border:1px solid var(--line);border-radius:10px;padding:8px}
+.m small{display:block;color:var(--mut);font-size:.7rem}.m b{font-size:1.15rem}
+.warn{color:var(--warn);font-size:.8rem;min-height:1.2em;margin-top:8px}
+ol{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+ol li{padding:7px 10px;border-radius:9px;background:#0b1424;border:1px solid var(--line);font-size:.85rem;transition:.3s}
+ol li small{color:var(--mut)}ol li.hot{border-color:var(--acc);background:#0d2a44;box-shadow:0 0 12px #38bdf855}
+ol li b{color:var(--acc);margin-right:6px}
+footer{max-width:1500px;margin:0 auto;padding:0 20px 24px;color:var(--mut);font-size:.78rem}
+@media(max-width:980px){main{grid-template-columns:1fr;padding:12px}header{padding:12px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">◆ Smart<span>Road</span><small>Smart Rainwater Drainage &amp; Harvesting System · Prototype</small></div>
+  <div class="tools">
+    <div class="seg"><button id="b2d" class="on">2D</button><button id="b3d">3D</button></div>
+    <button id="demo" class="pri">▶ Start Demo</button>
+    <button id="reset">Reset</button>
+  </div>
+</header>
+
+<main>
+  <section class="card">
+    <div id="stage"><div id="world"></div></div>
+    <div class="hint" id="hint">Cross-section view · switch to 3D, then drag to rotate</div>
+    <div class="narr" id="narr">Ready. Move the rain slider (try 30%+) or press “Start Demo”.</div>
+  </section>
+
+  <aside class="side">
+    <div class="card">
+      <h3>Rain Intensity</h3>
+      <div class="big"><span id="rv">0</span>%</div>
+      <div class="rw"><input type="range" id="rain" min="0" max="100" value="0"><span class="tk">▲ 30% trigger</span></div>
+      <div class="alert" id="alert">NO RAIN</div>
+    </div>
+    <div class="card">
+      <h3>Drainage Control</h3>
+      <div class="row"><span>Drainage status</span><span id="drain" class="badge closed">CLOSED</span></div>
+      <div class="mg">
+        <div class="m"><small>Slots open</small><b id="so">0 / 8</b></div>
+        <div class="m"><small>Inflow (L/min)</small><b id="inf">0</b></div>
+        <div class="m"><small>Chamber level</small><b id="ch">0%</b></div>
+        <div class="m"><small>Filter flow (L/min)</small><b id="thr">0</b></div>
+        <div class="m" style="grid-column:span 2"><small>Treated-water tank (simulated, 5000 L)</small><b id="tk2">0 L · 0%</b></div>
+      </div>
+      <div class="warn" id="warn"></div>
+    </div>
+    <div class="card"><h3>Filtration Stages</h3><ol id="chips"></ol></div>
+  </aside>
+</main>
+<footer>
+  ⚠ Simulation prototype for demonstration only — not a real purification system. Treated water is <b>not</b> assumed drinkable; any real use needs proper design, lab testing, certified treatment and local regulations. Simulated time: 1 s ≈ 1 min.
+</footer>
+
+<script>
+const $ = s => document.querySelector(s);
+const world = $('#world'), stage = $('#stage');
+const F = b => b.children[0];                       // front face of a box
+
+/* ---------- tiny 3D box helper ---------- */
+function put(b, x, y, w, h, d) {
+  const s = b.style;
+  s.left = x + 'px'; s.top = y + 'px'; s.width = w + 'px'; s.height = h + 'px';
+  s.setProperty('--w', w + 'px'); s.setProperty('--h', h + 'px'); s.setProperty('--d', d + 'px');
+}
+function box(cls, x, y, w, h, d) {
+  const b = document.createElement('div');
+  b.className = 'box ' + cls;
+  b.innerHTML = '<i class="f"></i><i class="t"></i><i class="r"></i>';
+  put(b, x, y, w, h, d); world.appendChild(b); return b;
+}
+function water(color) { const w = box('water', 0, 0, 10, 10, 10); w.style.setProperty('--wc', color); w.l = 0; return w; }
+function setWater(wb, [x, y, w, h, d], l) {          // fill a vessel to level l (0..1)
+  const p = 6, hh = (h - 2 * p) * l;
+  if (hh < 1.5) { wb.style.display = 'none'; return; }
+  wb.style.display = ''; put(wb, x + p, y + h - p - hh, w - 2 * p, hh, d - 2 * p);
+}
+function el(html) { const d = document.createElement('div'); d.innerHTML = html; return d.firstChild; }
+
+/* ---------- build the scene ---------- */
+world.appendChild(el('<div class="wall"></div>'));
+
+// sky: clouds + 3 rain layers at different depths
+const clouds = el('<div class="layer" style="transform:translateZ(-90px)"></div>');
+[20, 280, 540, 780].forEach(x => clouds.appendChild(el(`<div class="cloud" style="left:${x}px"></div>`)));
+world.appendChild(clouds);
+const rainLayers = [-70, 0, 80].map(z => {
+  const L = el(`<div class="layer" style="transform:translateZ(${z}px)"></div>`);
+  for (let i = 0; i < 26; i++) L.appendChild(el(`<u style="left:${Math.random() * 1000}px;animation-delay:-${Math.random()}s"></u>`));
+  world.appendChild(L); return L;
+});
+
+// road + 8 drainage slots
+const road = box('road', 20, 130, 960, 45, 200);
+const chamberV = [20, 175, 960, 115, 200];
+const chamber = box('glass', ...chamberV);
+const slotHTML = '<div class="slot"><div class="gap"><s></s><b></b><b></b></div></div>';
+const slots = [];
+for (let i = 0; i < 8; i++) {
+  const x = 30 + i * 116;
+  const a = el(slotHTML); a.style.cssText = `left:${x}px;top:0;width:64px;height:45px`;       // side view
+  const b = el(slotHTML); b.style.cssText = `left:${x}px;top:70px;width:64px;height:60px`;    // top view
+  const fall = el(`<div class="fall" style="left:${x}px"></div>`);
+  F(road).appendChild(a); road.children[1].appendChild(b); F(chamber).appendChild(fall);
+  slots.push({ p: 0, gaps: [a.firstChild, b.firstChild], fall });
+}
+F(chamber).appendChild(el('<span class="lab b">UNDERGROUND COLLECTION CHAMBER</span>'));
+
+// filtration stages, pipes, tank
+const STAGES = [
+  ['Mesh', 'screens leaves & debris', '#8a6b4a'],
+  ['Sediment', 'settles silt & grit', '#8a7a5a'],
+  ['Sand', 'fine particle filter', '#7a9aa0'],
+  ['Activated Carbon', 'adsorbs odour & organics', '#5bb0d0'],
+  ['Disinfection', 'UV / chlorine (simulated)', '#4fd0ff']
+];
+const stages = STAGES.map((s, i) => {
+  const V = [20 + i * 146, 350, 120, 150, 140];
+  const b = box('glass', ...V);
+  F(b).innerHTML = `<div class="media md${i}"></div><span class="lab">${i + 1}. ${s[0]}</span>`;
+  const w = water(s[2]);
+  return { b, V, w };
+});
+const pipes = [box('pipe v', 62, 290, 16, 60, 30)];
+for (let i = 0; i < 5; i++) pipes.push(box('pipe', 20 + i * 146 + 120, 415, 26, 14, 30));
+const tankV = [750, 320, 230, 200, 170];
+const tank = box('glass', ...tankV);
+F(tank).innerHTML = '<span class="lab">CLEAN-WATER TANK<br><small>treated · not certified drinkable</small></span><div class="pct" id="pct">0%</div>';
+const chamberW = water('#7c6a48'), tankW = water('#38bdf8');
+
+// side-panel chips
+$('#chips').innerHTML = STAGES.map((s, i) => `<li><b>${i + 1}</b>${s[0]} <small>— ${s[1]}</small></li>`).join('');
+const chips = [...document.querySelectorAll('#chips li')];
+
+/* ---------- simulation state ---------- */
+const CH_L = 3000, TK_L = 5000;            // chamber / tank capacity (litres, simulated)
+let rain = 0, chamberLvl = 0, tankLvl = 0, tgt = false, changedAt = 0, last = performance.now();
+let demoTarget = null, demoOn = false, demoTimers = [];
+
+function frame(now) {
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+
+  // demo ramps the rain smoothly
+  if (demoTarget !== null) {
+    rain += Math.max(-22 * dt, Math.min(22 * dt, demoTarget - rain));
+    $('#rain').value = rain;
+  }
+  // rule: rain >= 30% -> drainage OPEN
+  const want = rain >= 30;
+  if (want !== tgt) { tgt = want; changedAt = now; }
+  slots.forEach((s, i) => {                               // staggered open/close
+    if (now >= changedAt + (tgt ? i : 7 - i) * 110) s.p = Math.max(0, Math.min(1, s.p + (tgt ? 1 : -1) * dt * 3));
+    s.gaps.forEach(g => {
+      g.children[1].style.transform = `translateX(${-s.p * 100}%)`;
+      g.children[2].style.transform = `translateX(${s.p * 100}%)`;
+      g.children[0].style.opacity = s.p > .3 ? s.p * Math.min(1, rain / 40) : 0;
+    });
+    s.fall.style.opacity = s.p > .3 ? s.p * Math.min(1, rain / 40) : 0;
+  });
+
+  // water balance
+  const openFrac = slots.reduce((a, s) => a + s.p, 0) / 8;
+  const inflow = openFrac * (rain / 100) * .09;           // chamber fractions / s
+  chamberLvl = Math.min(1, chamberLvl + inflow * dt);
+  const filtering = chamberLvl > .02 && tankLvl < 1;
+  const out = filtering ? .06 : 0;
+  chamberLvl = Math.max(0, chamberLvl - out * dt);
+  tankLvl = Math.min(1, tankLvl + out * dt * CH_L * .92 / TK_L);   // 8% lost to backwash/reject
+
+  // draw water, pipes, stages
+  setWater(chamberW, chamberV, chamberLvl);
+  setWater(tankW, tankV, tankLvl);
+  const active = filtering ? Math.floor(now / 700) % 5 : -1;
+  stages.forEach((s, i) => {
+    s.w.l += ((filtering ? .72 : .1) - s.w.l) * Math.min(1, dt * 3);
+    setWater(s.w, s.V, s.w.l);
+    s.b.classList.toggle('hot', i === active);
+    chips[i].classList.toggle('hot', i === active);
+  });
+  pipes.forEach(p => p.classList.toggle('on', filtering));
+
+  // sky
+  const n = Math.round(rain / 100 * 26);
+  rainLayers.forEach(L => {
+    L.style.setProperty('--rs', (1.1 - rain / 100 * .65) + 's');
+    [...L.children].forEach((u, j) => u.style.display = j < n ? '' : 'none');
+  });
+  clouds.style.opacity = .25 + rain / 100 * .75;
+
+  // dashboard
+  $('#rv').textContent = Math.round(rain);
+  const a = $('#alert');
+  a.textContent = rain >= 30 ? 'RAIN DETECTED' : rain > 0 ? 'LIGHT RAIN — BELOW 30% TRIGGER' : 'NO RAIN';
+  a.className = 'alert' + (rain >= 30 ? ' on' : rain > 0 ? ' mid' : '');
+  const d = $('#drain'); d.textContent = tgt ? 'OPEN' : 'CLOSED'; d.className = 'badge ' + (tgt ? 'open' : 'closed');
+  $('#so').textContent = slots.filter(s => s.p > .95).length + ' / 8';
+  $('#inf').textContent = Math.round(inflow * CH_L);
+  $('#ch').textContent = Math.round(chamberLvl * 100) + '%';
+  $('#thr').textContent = Math.round(out * CH_L);
+  $('#tk2').textContent = Math.round(tankLvl * TK_L) + ' L · ' + Math.round(tankLvl * 100) + '%';
+  $('#pct').textContent = Math.round(tankLvl * 100) + '%';
+  $('#warn').textContent = chamberLvl >= .99 && inflow > 0 ? '⚠ Chamber full — overflow diverted to storm drain'
+    : tankLvl >= .999 ? '⚠ Tank full — filtration paused' : '';
+  requestAnimationFrame(frame);
+}
+
+/* ---------- 2D / 3D view ---------- */
+let is3 = false, rx = -20, ry = -26, drag = null;
+function layout() {
+  const W = stage.clientWidth, k = W / 1000, H = 620 * k * (is3 ? 1.08 : 1);
+  stage.style.height = H + 'px';
+  world.style.left = (W - 1000) / 2 + 'px'; world.style.top = (H - 620) / 2 + 'px';
+  world.style.transform = `scale(${k * (is3 ? .88 : 1)}) rotateX(${is3 ? rx : 0}deg) rotateY(${is3 ? ry : 0}deg)`;
+}
+function setView(v) {
+  is3 = v; stage.classList.toggle('is3', v);
+  $('#b2d').classList.toggle('on', !v); $('#b3d').classList.toggle('on', v);
+  $('#hint').textContent = v ? '3D view · drag to rotate' : 'Cross-section view · switch to 3D, then drag to rotate';
+  layout();
+}
+$('#b2d').onclick = () => setView(false);
+$('#b3d').onclick = () => setView(true);
+addEventListener('resize', layout);
+stage.addEventListener('pointerdown', e => {
+  if (!is3) return; drag = { x: e.clientX, y: e.clientY, rx, ry };
+  world.classList.add('drag'); stage.setPointerCapture(e.pointerId);
+});
+stage.addEventListener('pointermove', e => {
+  if (!drag) return;
+  ry = Math.max(-70, Math.min(10, drag.ry + (e.clientX - drag.x) * .3));
+  rx = Math.max(-55, Math.min(-2, drag.rx + (e.clientY - drag.y) * .2));
+  layout();
+});
+const endDrag = () => { drag = null; world.classList.remove('drag'); };
+stage.addEventListener('pointerup', endDrag); stage.addEventListener('pointercancel', endDrag);
+
+/* ---------- controls + demo ---------- */
+const say = m => $('#narr').textContent = m;
+function clearDemo() {
+  demoTimers.forEach(clearTimeout); demoTimers = []; demoTarget = null; demoOn = false;
+  $('#demo').textContent = '▶ Start Demo';
+}
+$('#rain').addEventListener('input', e => { clearDemo(); rain = +e.target.value; });
+function reset() {
+  clearDemo(); rain = 0; chamberLvl = 0; tankLvl = 0; slots.forEach(s => s.p = 0);
+  $('#rain').value = 0; say('Reset. Ready for a new run.');
+}
+$('#reset').onclick = reset;
+$('#demo').onclick = () => {
+  if (demoOn) { clearDemo(); say('Demo stopped. You can control the rain slider manually.'); return; }
+  reset(); demoOn = true; $('#demo').textContent = '■ Stop Demo';
+  const steps = [                       // [time ms, rain target %, narration]
+    [0, 0, '① Dry road — drainage slots are CLOSED.'],
+    [2500, 20, '② Light drizzle (20%) — below the 30% trigger, slots stay CLOSED.'],
+    [6000, 45, '③ Rain ≥ 30% → RAIN DETECTED. Drainage switches to OPEN automatically.'],
+    [10500, 75, '④ Slots open one by one; water drops into the underground collection chamber.'],
+    [17000, 75, '⑤ Water is pumped through Mesh → Sediment → Sand → Activated Carbon → Disinfection.'],
+    [26000, 90, '⑥ Heavy rain — the treated-water tank level keeps rising.'],
+    [34000, 15, '⑦ Rain drops below 30% — slots CLOSE while stored water finishes filtering.'],
+    [44000, 0, '⑧ Demo complete. Simulation only: real water would still need lab testing before any use.']
+  ];
+  steps.forEach(([t, r, m]) => demoTimers.push(setTimeout(() => { demoTarget = r; say(m); }, t)));
+  demoTimers.push(setTimeout(() => { demoOn = false; demoTarget = null; $('#demo').textContent = '▶ Start Demo'; }, 50000));
+};
+
+layout(); requestAnimationFrame(frame);
+</script>
+</body>
+</html>
